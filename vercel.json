@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/r/:route", "destination": "/index.html" }
+  ]
+}
