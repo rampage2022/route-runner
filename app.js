@@ -125,6 +125,104 @@ function showWarn(msg) {
   warnBoxEl.style.display = msg ? "block" : "none";
   warnBoxEl.textContent = msg || "";
 }
+// ====== Map Preview (Leaflet + OSM) ======
+let map, markersLayer, lineLayer;
+let geoCache = new Map();
+
+function geoKey(addr) {
+  return `route_runner:geocode:${addr.toLowerCase()}`;
+}
+
+function loadGeocodeFromStorage(addr) {
+  const raw = localStorage.getItem(geoKey(addr));
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+function saveGeocodeToStorage(addr, latlng) {
+  localStorage.setItem(geoKey(addr), JSON.stringify(latlng));
+}
+
+async function geocodeAddress(addr) {
+  if (geoCache.has(addr)) return geoCache.get(addr);
+
+  const stored = loadGeocodeFromStorage(addr);
+  if (stored && stored.lat && stored.lng) {
+    geoCache.set(addr, stored);
+    return stored;
+  }
+
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`;
+  const res = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  if (!data || !data.length) return null;
+
+  const latlng = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  geoCache.set(addr, latlng);
+  saveGeocodeToStorage(addr, latlng);
+  return latlng;
+}
+
+function initMapIfNeeded() {
+  if (map) return;
+  map = L.map("map");
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  markersLayer = L.layerGroup().addTo(map);
+  lineLayer = L.layerGroup().addTo(map);
+
+  map.setView([32.7767, -96.7970], 10); // Dallas default
+}
+
+function clearMapLayers() {
+  if (markersLayer) markersLayer.clearLayers();
+  if (lineLayer) lineLayer.clearLayers();
+}
+
+async function renderMap(routeStops, currentIndex) {
+  // If the map container isn't on the page, do nothing
+  const mapEl = document.getElementById("map");
+  if (!mapEl) return;
+
+  initMapIfNeeded();
+  clearMapLayers();
+
+  if (!routeStops || !routeStops.length) return;
+
+  // Geocode all stops (cached after first time)
+  const points = [];
+  for (const s of routeStops) {
+    const ll = await geocodeAddress(s.address);
+    if (ll) points.push({ ...ll, stop: s.stop, name: s.name, address: s.address });
+  }
+
+  if (!points.length) return;
+
+  // Draw line in stop order (preview only)
+  const latlngs = points.map(p => [p.lat, p.lng]);
+  L.polyline(latlngs).addTo(lineLayer);
+
+  const currentStopNumber = routeStops[currentIndex]?.stop;
+
+  // Draw markers (current stop larger)
+  for (const p of points) {
+    const isCurrent = p.stop === currentStopNumber;
+    const marker = L.circleMarker([p.lat, p.lng], { radius: isCurrent ? 10 : 7 });
+    marker.bindPopup(
+      `<strong>#${p.stop}</strong><br>${escapeHtml(p.name || "")}<br>${escapeHtml(p.address)}`
+    );
+    marker.addTo(markersLayer);
+  }
+
+  // Fit bounds
+  const bounds = L.latLngBounds(latlngs);
+  map.fitBounds(bounds, { padding: [20, 20] });
+}
 
 function render() {
   if (!routeStops.length) {
