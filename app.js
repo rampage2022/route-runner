@@ -166,7 +166,11 @@ async function geocodeAddress(addr) {
 }
 
 function initMapIfNeeded() {
+  const mapEl = document.getElementById("map");
+  if (!mapEl) return;
+
   if (map) return;
+
   map = L.map("map");
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -176,8 +180,12 @@ function initMapIfNeeded() {
   markersLayer = L.layerGroup().addTo(map);
   lineLayer = L.layerGroup().addTo(map);
 
-  map.setView([32.7767, -96.7970], 10); // Dallas default
+  map.setView([32.7767, -96.7970], 10);
+
+  // ✅ force Leaflet to re-measure container size (fixes blank map)
+  setTimeout(() => map.invalidateSize(true), 250);
 }
+
 
 function clearMapLayers() {
   if (markersLayer) markersLayer.clearLayers();
