@@ -9,8 +9,6 @@ function getRouteFromPath() {
   return null; // home page
 }
 
-}
-
 function lsKey(route, suffix) {
   return `route_runner:${route}:${suffix}`;
 }
@@ -96,7 +94,7 @@ function escapeHtml(s) {
 
 // ====== UI ======
 const route = getRouteFromPath();
-document.getElementById("routePill").textContent = `Route: ${route}`;
+document.getElementById("routePill").textContent = route ? `Route: ${route}` : "Routes Home";
 
 const titleEl = document.getElementById("title");
 const subtitleEl = document.getElementById("subtitle");
@@ -233,6 +231,30 @@ async function renderMap(routeStops, currentIndex) {
   const bounds = L.latLngBounds(latlngs);
   map.fitBounds(bounds, { padding: [20, 20] });
 }
+function titleCase(s) {
+  return (s || "").slice(0, 1).toUpperCase() + (s || "").slice(1);
+}
+
+function renderHome(allStops) {
+  if (homeCardEl) homeCardEl.style.display = "block";
+
+  // Hide route controls on home
+  actionsEl.style.display = "none";
+  titleEl.textContent = "Select a route";
+  subtitleEl.textContent = "Tap a day below.";
+  countLineEl.textContent = "";
+  stopListEl.innerHTML = "";
+
+  const routes = Array.from(new Set(allStops.map(s => s.route).filter(Boolean))).sort();
+  if (!routes.length) {
+    routesListEl.innerHTML = `<div class="muted">No routes found in your sheet yet.</div>`;
+    return;
+  }
+
+  routesListEl.innerHTML = routes.map(r =>
+    `<a class="btn secondary" href="/r/${encodeURIComponent(r)}">${escapeHtml(titleCase(r))}</a>`
+  ).join("");
+}
 
 function render() {
   if (!routeStops.length) {
@@ -319,10 +341,17 @@ resetBtn.addEventListener("click", () => {
 (async function load() {
   showWarn("");
   try {
-    const allStops = await fetchStops();
-    routeStops = allStops.filter(s => s.route === route).sort((a, b) => a.stop - b.stop);
-    currentIndex = getCurrentIndex();
-    render();
+   const allStops = await fetchStops();
+
+if (!route) {
+  renderHome(allStops);
+  return;
+}
+
+routeStops = allStops.filter(s => s.route === route).sort((a, b) => a.stop - b.stop);
+currentIndex = getCurrentIndex();
+render();
+
   } catch (e) {
     actionsEl.style.display = "none";
     titleEl.textContent = "Couldn’t load stops";
