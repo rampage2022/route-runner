@@ -5,7 +5,7 @@ const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRH1e2H
 function getRouteFromPath() {
   const path = window.location.pathname.toLowerCase();
   const m = path.match(/\/r\/([^\/]+)/);
-  if (m && m[1]) return m[1];
+  if (m && m[1]) return decodeURIComponent(m[1]).trim().toLowerCase();
   return null; // home page
 }
 
@@ -251,9 +251,11 @@ function renderHome(allStops) {
     return;
   }
 
-  routesListEl.innerHTML = routes.map(r =>
-    `<a class="btn secondary" href="/r/${encodeURIComponent(r)}">${escapeHtml(titleCase(r))}</a>`
-  ).join("");
+routesListEl.innerHTML = routes.map(r => {
+  const rr = (r || "").trim().toLowerCase();
+  return `<a class="btn secondary" href="/r/${encodeURIComponent(rr)}">${escapeHtml(titleCase(rr))}</a>`;
+}).join("");
+
 }
 
 function render() {
