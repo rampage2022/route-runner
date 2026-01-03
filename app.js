@@ -6,7 +6,9 @@ function getRouteFromPath() {
   const path = window.location.pathname.toLowerCase();
   const m = path.match(/\/r\/([^\/]+)/);
   if (m && m[1]) return m[1];
-  return "monday";
+  return null; // home page
+}
+
 }
 
 function lsKey(route, suffix) {
